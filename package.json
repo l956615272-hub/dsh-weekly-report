@@ -32,7 +32,7 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\"",
+    "test": "node --test test/core.test.mjs test/prompt.test.mjs test/plugin.test.mjs test/client-hooks.test.mjs",
     "e2e": "node test/e2e-agent-flow.mjs",
     "list": "node scripts/collect.mjs sessions"
   },
