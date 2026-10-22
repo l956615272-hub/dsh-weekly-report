@@ -9,6 +9,9 @@ import { join } from 'node:path';
 
 const FROM = Date.parse('2026-10-08T00:00:00+08:00');
 const TO = Date.parse('2026-10-14T23:59:59.999+08:00');
+// Report names and labels are rendered in the machine's local timezone, so the
+// literal +/-08:00 expectations only hold on a UTC+8 machine.
+const SHANGHAI = new Date().getTimezoneOffset() === -480;
 
 test('collect commands carry the window, the ids and the git filters', () => {
   const commands = buildCollectCommands({
@@ -28,8 +31,12 @@ test('collect commands carry the window, the ids and the git filters', () => {
   assert.equal(commands.length, 2);
   const sessions = commands[0].text;
   assert.match(sessions, /scripts\/collect\.mjs"? sessions/);
-  assert.match(sessions, /--from 2026-10-08/);
-  assert.match(sessions, /--to 2026-10-14/);
+  const fromToken = sessions.match(/--from (\S+)/)[1];
+  const toToken = sessions.match(/--to (\S+)/)[1];
+  assert.equal(Date.parse(fromToken), FROM);
+  assert.equal(Date.parse(toToken), TO);
+  assert.match(fromToken, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?[+-]\d{2}:\d{2}$/);
+  if (SHANGHAI) assert.match(sessions, /--from 2026-10-08T00:00:00\+08:00/);
   assert.match(sessions, /--ids session-a,session-b/);
   assert.match(sessions, /--out \.dsh-weekly-report\/sessions\.md/);
 
@@ -72,7 +79,7 @@ test('prompt embeds the sample, the save command and no session bodies', () => {
     origin: 'http://127.0.0.1:19387'
   });
   assert.match(prompt, /写一份\*\*周报\*\*/);
-  assert.match(prompt, /2026-10-08 00:00 ~ 2026-10-14 23:59/);
+  assert.match(prompt, new RegExp(formatLocal(FROM) + ' ~ ' + formatLocal(TO)));
   assert.match(prompt, /session-a/);
   assert.match(prompt, /示例工作区 · 窗口内 3 条用户消息/);
   assert.match(prompt, /# 上周周报/);
@@ -90,10 +97,16 @@ test('prompt falls back to a default outline without a sample', () => {
 });
 
 test('report naming follows the report type', () => {
-  assert.equal(reportFileName({ type: 'weekly', from: FROM, to: TO }), '2026-W41.md');
-  assert.equal(reportFileName({ type: 'daily', from: FROM, to: TO }), '2026-10-08.md');
-  assert.equal(reportFileName({ type: 'monthly', from: FROM, to: TO }), '2026-10.md');
-  assert.equal(reportFileName({ type: 'custom', from: FROM, to: TO }), '2026-10-08_2026-10-14.md');
+  const firstDay = formatDay(FROM);
+  const lastDay = formatDay(TO);
+  assert.equal(reportFileName({ type: 'daily', from: FROM, to: TO }), firstDay + '.md');
+  assert.equal(reportFileName({ type: 'custom', from: FROM, to: TO }), firstDay + '_' + lastDay + '.md');
+  assert.equal(reportFileName({ type: 'monthly', from: FROM, to: TO }), firstDay.slice(0, 7) + '.md');
+  assert.match(reportFileName({ type: 'weekly', from: FROM, to: TO }), /^\d{4}-W\d{2}\.md$/);
+  if (SHANGHAI) {
+    assert.equal(reportFileName({ type: 'weekly', from: FROM, to: TO }), '2026-W41.md');
+    assert.equal(reportFileName({ type: 'daily', from: FROM, to: TO }), '2026-10-08.md');
+  }
   assert.equal(reportFileName({ type: 'weekly', from: FROM, to: TO, name: 'mine.md' }), 'mine.md');
   assert.equal(isoWeekLabel(Date.parse('2026-12-31T12:00:00')), '2026-W53');
   assert.equal(isoWeekLabel(Date.parse('2027-01-01T12:00:00')), '2026-W53');
