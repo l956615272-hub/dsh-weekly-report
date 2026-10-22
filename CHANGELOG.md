@@ -3,6 +3,34 @@
 本文件用于生成 GitHub Release 说明：打 tag 时 `publish.yml` 取 `## <version>` 到下一个 `## ` 之间的内容作为该版本的发布说明。
 This file feeds the GitHub Release notes: on a tag push, `publish.yml` uses everything between `## <version>` and the next `## ` heading.
 
+## 0.1.7
+
+### 中文
+
+**新增功能**
+- 会话列表按工作区折叠：点工作区标题即可收起或展开，折叠后标题上仍显示「已选 3/18」。
+- 每个工作区的会话列表独立滚动（最高 264px），一个工作区里会话很多也不会把后面的表单推到屏幕外。
+- 新增「折叠全部 / 展开全部」两个快捷按钮。
+
+**修复**
+- 0.1.6 打了 tag 却没能发到 npm：工作流里发布步骤的条件 `if: !inputs.dry_run` 在 tag 触发时读到的是字符串 `"false"`，导致该步骤被跳过。0.1.7 改为在 shell 里判断 `DRY_RUN`，并把 0.1.6 的界面改动一并带上。
+- GitHub Release 说明改为从本文件的对应版本段落自动生成（中英双语），发布时会重建同名 Release。
+
+**完整更新日志**：https://github.com/l956615272-hub/dsh-weekly-report/compare/v0.1.6...v0.1.7
+
+### English
+
+**Added**
+- Collapsible workspace groups in the session list: click a workspace header to fold or unfold it; the folded header still shows the selected count (`3/18`).
+- Each workspace scrolls on its own (max 264px), so a workspace with many sessions no longer pushes the rest of the form off screen.
+- New `折叠全部` / `展开全部` (collapse all / expand all) shortcuts.
+
+**Fixed**
+- 0.1.6 was tagged but never reached npm: the publish step's `if: !inputs.dry_run` read the string `"false"` on a tag push and skipped itself. 0.1.7 moves the check into the shell (`DRY_RUN`) and ships the 0.1.6 UI work along with it.
+- GitHub Release notes are now generated from the matching section of this file (Chinese + English), and the existing release for the tag is recreated on every publish.
+
+**Full changelog**: https://github.com/l956615272-hub/dsh-weekly-report/compare/v0.1.6...v0.1.7
+
 ## 0.1.6
 
 ### 中文
