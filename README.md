@@ -23,13 +23,15 @@
 dsh-weekly-report
 ```
 
-### 从本地路径（开发用）
+### 从源码安装（开发用）
 
-同一个页面选择「安装本地路径」，填：
+先克隆仓库：
 
+```sh
+git clone https://github.com/l956615272-hub/dsh-weekly-report.git
 ```
-/Users/d/Personal_Project/dsh-weekly-report
-```
+
+在同一个页面选择「安装本地路径」，填克隆后的目录（例如 `~/code/dsh-weekly-report`）。
 
 安装后 **重启 DSH Desktop**（宿主代码需要重启；只有客户端改动时刷新页面即可）。之后在「设置 → 周报生成」里使用。
 
