@@ -41,11 +41,28 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
           if [ "$DRY_RUN" = "true" ]; then
-            echo 'dry_run=true: skipping npm publish'
+            echo "dry_run=true: skipping npm publish (version $VERSION)"
+            exit 0
+          fi
+          if npm view "dsh-weekly-report@$VERSION" version >/dev/null 2>&1; then
+            echo "dsh-weekly-report@$VERSION is already on npm; skipping publish"
             exit 0
           fi
           npm publish --access public
+          # `npm publish` can exit 0 without the version landing (staged
+          # publishes, registry lag). Verify, so a silent no-op turns red.
+          for attempt in 1 2 3 4 5 6; do
+            if npm view "dsh-weekly-report@$VERSION" version >/dev/null 2>&1; then
+              echo "verified dsh-weekly-report@$VERSION on npm"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "publish did not land for dsh-weekly-report@$VERSION" >&2
+          exit 1
       - name: Create GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -56,6 +73,5 @@ jobs:
           VERSION=$(printf '%s' "$TAG" | sed 's/^v//')
           awk -v v="$VERSION" '/^## /{ if (index($0, "## " v) == 1) { p = 1; next } if (p) { exit } } p' CHANGELOG.md > /tmp/notes.md
           if [ ! -s /tmp/notes.md ]; then printf 'Release %s\n' "$TAG" > /tmp/notes.md; fi
-          cat /tmp/notes.md
           gh release delete "$TAG" --yes --cleanup-tag=false || true
           gh release create "$TAG" --title "dsh-weekly-report $VERSION" --notes-file /tmp/notes.md
