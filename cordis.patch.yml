@@ -1,0 +1,6 @@
+# Bundle patch layer: this row loads the package main entry as the host half
+# (a plain Cordis plugin); the `dsh.client` declaration in package.json makes the
+# web app load ./client as the browser half.
+- insert:
+    - id: dsh-weekly-report
+      name: dsh-weekly-report
