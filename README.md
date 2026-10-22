@@ -1,5 +1,7 @@
 # dsh-weekly-report
 
+[![npm](https://img.shields.io/npm/v/dsh-weekly-report.svg)](https://www.npmjs.com/package/dsh-weekly-report)
+
 按时间段挑选 DSH 会话 + 项目 git 提交，参考**你自己以前写的报告**，生成日报 / 周报 / 月报（Markdown）。
 
 ## 特性
