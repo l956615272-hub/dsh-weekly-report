@@ -329,3 +329,66 @@ test('a failed dispatch shows the reason instead of doing nothing', async () => 
     delete globalThis.fetch;
   }
 });
+
+const groupHeader = (tree) => nodesOf(tree).find((node) => (
+  node.props && node.props.role === 'button' && textOf(node.children).includes('示例工作区')
+)) || null;
+
+const groupListContainer = (tree) => nodesOf(tree).find((node) => (
+  node.props && node.props.style && node.props.style.overflowY === 'auto'
+)) || null;
+
+test('a workspace folds and unfolds from its header', async () => {
+  const { hooks, component } = await mountPanel();
+  try {
+    hooks.render(component);
+    await settle();
+    let tree = hooks.render(component).tree;
+    assert.ok(hasText(tree, '会话标题'), 'the session row starts visible');
+
+    const header = groupHeader(tree);
+    assert.ok(header, 'the workspace header must be clickable');
+    assert.equal(header.props['aria-expanded'], true);
+    header.props.onClick();
+
+    tree = hooks.render(component).tree;
+    assert.ok(!hasText(tree, '会话标题'), 'a collapsed workspace hides its session rows');
+    assert.ok(hasText(tree, '示例工作区'), 'the header stays so the workspace can be reopened');
+    assert.equal(groupHeader(tree).props['aria-expanded'], false);
+
+    groupHeader(tree).props.onClick();
+    tree = hooks.render(component).tree;
+    assert.ok(hasText(tree, '会话标题'), 'unfolding brings the rows back');
+  } finally {
+    delete globalThis.window;
+    delete globalThis.fetch;
+  }
+});
+
+test('long workspace lists scroll on their own', async () => {
+  const { hooks, component } = await mountPanel();
+  try {
+    hooks.render(component);
+    await settle();
+    const tree = hooks.render(component).tree;
+    const list = groupListContainer(tree);
+    assert.ok(list, 'the session rows must live in a scroll container');
+    assert.equal(list.props.style.maxHeight, 264, 'the container must cap its height');
+    assert.ok(list.children.length >= 1, 'the container renders the rows');
+
+    const collapseAll = clickable(tree, '折叠全部');
+    assert.ok(collapseAll, '折叠全部 must exist');
+    collapseAll.props.onClick();
+    const folded = hooks.render(component).tree;
+    assert.equal(groupHeader(folded).props['aria-expanded'], false);
+
+    const expandAll = clickable(folded, '展开全部');
+    assert.ok(expandAll, '展开全部 must exist');
+    expandAll.props.onClick();
+    const opened = hooks.render(component).tree;
+    assert.equal(groupHeader(opened).props['aria-expanded'], true);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.fetch;
+  }
+});

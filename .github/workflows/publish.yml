@@ -12,7 +12,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -38,3 +38,14 @@ jobs:
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="$GITHUB_REF_NAME"
+          VERSION=$(printf '%s' "$TAG" | sed 's/^v//')
+          awk -v v="$VERSION" '/^## /{ if (index($0, "## " v) == 1) { p = 1; next } if (p) { exit } } p' CHANGELOG.md > /tmp/notes.md
+          if [ ! -s /tmp/notes.md ]; then printf 'Release %s\n' "$TAG" > /tmp/notes.md; fi
+          gh release create "$TAG" --title "$TAG" --notes-file /tmp/notes.md || gh release edit "$TAG" --title "$TAG" --notes-file /tmp/notes.md

@@ -1,0 +1,56 @@
+# 更新日志 / Changelog
+
+本文件用于生成 GitHub Release 说明：打 tag 时 `publish.yml` 取 `## <version>` 到下一个 `## ` 之间的内容作为该版本的发布说明。
+This file feeds the GitHub Release notes: on a tag push, `publish.yml` uses everything between `## <version>` and the next `## ` heading.
+
+## 0.1.6
+
+### 中文
+
+**新增功能**
+- 会话列表按工作区折叠：点工作区标题即可收起或展开，折叠后标题上仍显示「已选 3/18」。
+- 每个工作区的会话列表独立滚动（最高 264px），一个工作区里会话很多也不会把后面的表单推到屏幕外。
+- 新增「折叠全部 / 展开全部」两个快捷按钮。
+
+**完整更新日志**：https://github.com/l956615272-hub/dsh-weekly-report/compare/v0.1.5...v0.1.6
+
+### English
+
+**Added**
+- Collapsible workspace groups in the session list: click a workspace header to fold or unfold it; the folded header still shows the selected count (`3/18`).
+- Each workspace scrolls on its own (max 264px), so a workspace with many sessions no longer pushes the rest of the form off screen.
+- New `折叠全部` / `展开全部` (collapse all / expand all) shortcuts.
+
+**Full changelog**: https://github.com/l956615272-hub/dsh-weekly-report/compare/v0.1.5...v0.1.6
+
+## 0.1.5
+
+### 中文
+
+**修复**
+- README 的安装说明不再写死作者本机路径，改为先 `git clone` 再填写克隆后的目录。
+- 测试里的时间窗口断言不再依赖运行机器的时区，UTC 的 CI runner 上也能通过。
+
+**完整更新日志**：https://github.com/l956615272-hub/dsh-weekly-report/compare/v0.1.4...v0.1.5
+
+### English
+
+**Fixed**
+- The install section no longer hard-codes the author's local path; clone the repo and point DSH at that folder instead.
+- Time-window assertions in the test suite no longer depend on the machine timezone, so they also pass on the UTC CI runner.
+
+**Full changelog**: https://github.com/l956615272-hub/dsh-weekly-report/compare/v0.1.4...v0.1.5
+
+## 0.1.4
+
+### 中文
+
+首个发布版本：按会话最后活动时间筛选并只取时间窗内的回合、多仓库 git 采集、样例驱动的报告生成、报告与样例库。
+
+**完整更新日志**：https://github.com/l956615272-hub/dsh-weekly-report/commits/v0.1.4
+
+### English
+
+First public release: sessions picked by last activity with turns sliced to the window, multi-repository git collection, sample-driven report writing, and a local report/sample library.
+
+**Full changelog**: https://github.com/l956615272-hub/dsh-weekly-report/commits/v0.1.4

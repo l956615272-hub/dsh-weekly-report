@@ -1,6 +1,6 @@
 {
   "name": "dsh-weekly-report",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "按时间段挑选 DSH 会话与项目 git 提交，参考你自己以前写的报告样例，生成日报/周报/月报（Markdown）。Pick DSH sessions and git commits for a window, then write a daily/weekly/monthly report in your own house style.",
   "type": "module",
   "main": "lib/index.js",
