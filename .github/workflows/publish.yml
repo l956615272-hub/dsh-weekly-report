@@ -2,6 +2,11 @@ name: publish
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only validate the token and the build (skip npm publish)'
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*'
@@ -18,9 +23,18 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+      - name: Install
+        run: npm install --no-audit --no-fund
       - name: Test
         run: npm test
+      - name: Verify npm token
+        run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Pack (dry run)
+        run: npm pack --dry-run
       - name: Publish to npm
+        if: ${{ !inputs.dry_run }}
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
