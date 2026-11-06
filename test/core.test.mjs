@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import zlib from 'node:zlib';
 
 import { decodeFrames, frameSizeAt, splitFrames } from '../lib/core/zstd.js';
-import { classifySession, buildCatalog, lastEventTime, readHeader, readSessionWindow } from '../lib/core/sessions.js';
-import { buildWorkspaceIndex, readWorkspaces } from '../lib/core/workspaces.js';
+import { classifySession, buildCatalog, lastEventTime, readHeader, readProjectedTitle, readSessionWindow } from '../lib/core/sessions.js';
+import { buildWorkspaceIndex, readArchivedSessionIds, readWorkspaces } from '../lib/core/workspaces.js';
 import { collectCommits, discoverRepos } from '../lib/core/git.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -92,6 +92,24 @@ function seedSessions(home, workspacePath) {
     turnStart(at(10), 1),
     userMessage('u20', at(10), '子代理提问'),
     assistantMessage('a20', at(10, 10), '子代理回答')
+  ], 2);
+  // blank: opened and abandoned. Only the header and the seeding events, but
+  // `session/end-seed` is stamped in the window, so it must be dropped instead
+  // of being listed under its bare session id.
+  writeSession(join(root, 'session-blank', 'session.v4.jsonl.zstd'), [
+    sessionHeader('session-blank', workspacePath),
+    JSON.stringify({ type: 'sandbox/mode', seq: 1, time: at(9), data: { mode: 'workspace-write' } }),
+    JSON.stringify({ type: 'session/end-seed', seq: 3, time: at(9, 12) })
+  ], 2);
+  // closed: its only conversation is on 10-01, but `session/end-seed` lands on
+  // 10-09, inside the window. It has a title but nothing to report, so it was
+  // being listed with "0 messages in window".
+  writeSession(join(root, 'session-closed', 'session.v4.jsonl.zstd'), [
+    sessionHeader('session-closed', workspacePath),
+    turnStart(at(1), 1),
+    userMessage('u30', at(1), '早就结束的对话'),
+    assistantMessage('a30', at(1, 10), '早就结束的回答'),
+    JSON.stringify({ type: 'session/end-seed', seq: 4, time: at(9, 12) })
   ], 2);
   // fork: seeded copy of u2 plus its own in-window turn; must merge into aaa
   writeSession(join(root, 'session-fork', 'session.v4.jsonl.zstd'), [
@@ -240,4 +258,76 @@ test('git: discovers repositories and filters by author and date', async () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+function writeProjectedTitle(home, name, title) {
+  const dir = join(home, 'storages', 'session_projcache', 'sessions');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, name + '.json'), JSON.stringify({
+    unit: { version: 3 },
+    record: { rows: { title: { ver: 1, seq: 3, val: title } } }
+  }));
+}
+
+test('title: the projection cache is found under either file name', async () => {
+  await withTempHome(({ home }) => {
+    // DSH writes some sessions as session-<uuid>.json and others as <uuid>.json.
+    writeProjectedTitle(home, 'session-aaa', '会话标题与归档开关优化');
+    writeProjectedTitle(home, 'bbb', '标签文件下载OOMKilled排查');
+    assert.equal(readProjectedTitle(home, 'session-aaa'), '会话标题与归档开关优化');
+    assert.equal(readProjectedTitle(home, 'aaa'), '会话标题与归档开关优化');
+    assert.equal(readProjectedTitle(home, 'session-bbb'), '标签文件下载OOMKilled排查');
+    assert.equal(readProjectedTitle(home, 'session-missing'), null);
+  });
+});
+
+test('catalog: the projected title wins over the truncated first prompt', async () => {
+  await withTempHome(({ home }) => {
+    writeProjectedTitle(home, 'session-aaa', '会话标题与归档开关优化');
+    const catalog = buildCatalog({ homes: [home], home, from: at(8), to: at(15, 23, 59), withTurns: false });
+    assert.equal(catalog.entries.length, 1);
+    assert.equal(catalog.entries[0].title, '会话标题与归档开关优化');
+    // The window still starts at the first real prompt, not at the title.
+    assert.equal(catalog.entries[0].windowMessages, 2);
+  });
+});
+
+test('catalog: archived sessions are hidden unless includeArchived', async () => {
+  await withTempHome(({ home }) => {
+    const registryPath = join(home, 'storages', 'workspace.json');
+    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+    registry.global.archivedSessionIds = ['session-aaa'];
+    writeFileSync(registryPath, JSON.stringify(registry));
+    assert.deepEqual([...readArchivedSessionIds(home)], ['aaa']);
+
+    const hidden = buildCatalog({ homes: [home], home, from: at(8), to: at(15, 23, 59), withTurns: false });
+    assert.deepEqual(hidden.entries.map((entry) => entry.sessionId), []);
+
+    const shown = buildCatalog({ homes: [home], home, from: at(8), to: at(15, 23, 59), includeArchived: true, withTurns: false });
+    assert.deepEqual(shown.entries.map((entry) => entry.sessionId), ['session-aaa']);
+    assert.equal(shown.entries[0].archived, true);
+  });
+});
+
+test('catalog: sessions with nothing inside the window are not listed', async () => {
+  await withTempHome(({ home }) => {
+    // `session-blank` only holds the header and seeding events; `session-closed`
+    // ended its conversation on 10-01 and only has its end-seed stamp in the
+    // window. Both would otherwise appear with nothing to report — the blank one
+    // under its bare id, the closed one with "0 messages in window".
+    const catalog = buildCatalog({ homes: [home], home, from: at(8), to: at(15, 23, 59), withTurns: true });
+    const ids = catalog.entries.map((entry) => entry.sessionId);
+    assert.deepEqual(ids, ['session-aaa']);
+  });
+});
+
+test('catalog: a registry without a global block keeps every session', async () => {
+  await withTempHome(({ home }) => {
+    const registryPath = join(home, 'storages', 'workspace.json');
+    writeFileSync(registryPath, JSON.stringify({ tables: { workspaces: {} } }));
+    assert.equal(readArchivedSessionIds(home).size, 0);
+    const catalog = buildCatalog({ homes: [home], home, from: at(8), to: at(15, 23, 59), withTurns: false });
+    assert.deepEqual(catalog.entries.map((entry) => entry.sessionId), ['session-aaa']);
+    assert.equal(catalog.entries[0].archived, false);
+  });
 });

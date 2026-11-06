@@ -392,3 +392,63 @@ test('long workspace lists scroll on their own', async () => {
     delete globalThis.fetch;
   }
 });
+
+/** The checkbox inside the label whose text is `text`. */
+const checkboxLabelled = (tree, text) => {
+  const label = nodesOf(tree).find((node) => (
+    Array.isArray(node.children) &&
+    node.children.some((child) => child && child.props && child.props.type === 'checkbox') &&
+    textOf(node.children).includes(text)
+  ));
+  if (!label) return null;
+  return label.children.find((child) => child && child.props && child.props.type === 'checkbox');
+};
+
+test('archived sessions are off by default and are requested when switched on', async () => {
+  const { hooks, component, calls } = await mountPanel();
+  try {
+    hooks.render(component);
+    await settle();
+    let tree = hooks.render(component).tree;
+
+    const box = checkboxLabelled(tree, '归档会话');
+    assert.ok(box, 'the 归档会话 switch must render');
+    assert.equal(box.props.checked, false, '归档会话 must default to off');
+    assert.equal(
+      sessionCalls(calls).some((call) => call.url.includes('archived=1')),
+      false,
+      'the first fetch must not ask for archived sessions'
+    );
+
+    const before = sessionCalls(calls).length;
+    box.props.onChange({ target: { checked: true } });
+    await settle();
+    tree = hooks.render(component).tree;
+    const after = sessionCalls(calls);
+    assert.equal(after.length - before, 1, 'toggling must re-fetch once');
+    assert.ok(after[after.length - 1].url.includes('&archived=1'), 'the request must carry archived=1');
+    assert.equal(checkboxLabelled(tree, '归档会话').props.checked, true);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.fetch;
+  }
+});
+
+test('the prompt request forwards the archived switch', async () => {
+  const context = await mountPanel();
+  const { hooks, component, calls } = context;
+  try {
+    hooks.render(component);
+    await settle();
+    const tree = hooks.render(component).tree;
+    checkboxLabelled(tree, '归档会话').props.onChange({ target: { checked: true } });
+    await settle();
+    await openPreviewWithSelection(context);
+    const promptCall = calls.find((call) => call.url.includes('/prompt'));
+    assert.ok(promptCall, 'the prompt route must be called');
+    assert.equal(JSON.parse(promptCall.options.body).includeArchived, true);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.fetch;
+  }
+});

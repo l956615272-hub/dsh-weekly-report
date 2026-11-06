@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -272,4 +272,33 @@ test('browser half registers a settings section', async () => {
   assert.match(rendered, /周报生成/);
   assert.match(rendered, /选择会话/);
   delete globalThis.window;
+});
+
+test('archived sessions stay out of the catalog unless explicitly requested', async () => {
+  const f = fixture();
+  try {
+    const registryPath = join(f.home, 'storages', 'workspace.json');
+    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+    registry.global = { archivedSessionIds: ['session-one'] };
+    writeFileSync(registryPath, JSON.stringify(registry));
+    const { route } = mount(f.home);
+
+    const hidden = await request(route(BASE + '/sessions').handler, BASE + '/sessions?from=' + FROM + '&to=' + TO);
+    assert.equal(hidden.body.data.total, 0);
+
+    const shown = await request(route(BASE + '/sessions').handler, BASE + '/sessions?from=' + FROM + '&to=' + TO + '&archived=1');
+    assert.equal(shown.body.data.total, 1);
+    assert.equal(shown.body.data.groups[0].entries[0].archived, true);
+
+    // The evidence collector must be told about the bucket, or the ids the user
+    // picked from it silently vanish from the report.
+    const prompt = await request(route(BASE + '/prompt').handler, BASE + '/prompt', {
+      method: 'POST',
+      body: { from: FROM, to: TO, sessionIds: ['session-one'], includeArchived: true }
+    });
+    assert.equal(prompt.status, 200);
+    assert.match(prompt.body.data.commands[0].text, /--archived/);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
 });

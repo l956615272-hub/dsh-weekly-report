@@ -17,7 +17,7 @@ const DAY = 24 * 60 * 60 * 1000;
 function usage() {
   console.log([
     '用法:',
-    '  collect.mjs sessions --from <日期> --to <日期> [--ids id1,id2] [--subagents] [--out <文件>]',
+    '  collect.mjs sessions --from <日期> --to <日期> [--ids id1,id2] [--subagents] [--archived] [--out <文件>]',
     '  collect.mjs git --workspace <路径> [--repo <路径>]... --from <日期> --to <日期>',
     '                   [--author <姓名或邮箱>]... [--all-branches] [--merges] [--out <文件>]',
     '',
@@ -77,6 +77,7 @@ function sessionsMarkdown(flags) {
     from,
     to,
     includeSubagents: flags.subagents === 'true',
+    includeArchived: flags.archived === 'true',
     withTurns: true
   });
   const wanted = flags.ids.length > 0 ? new Set(flags.ids) : null;
@@ -86,7 +87,8 @@ function sessionsMarkdown(flags) {
   lines.push('');
   lines.push('- 时间窗：' + stamp(from) + ' ~ ' + stamp(to));
   lines.push('- 生成时间：' + stamp(Date.now()));
-  lines.push('- 说明：仅包含时间窗内发生的回合；subagent 会话' + (flags.subagents === 'true' ? '已包含' : '已排除') + '。');
+  lines.push('- 说明：仅包含时间窗内发生的回合；subagent 会话' + (flags.subagents === 'true' ? '已包含' : '已排除') +
+    '，归档会话' + (flags.archived === 'true' ? '已包含' : '已排除') + '。');
   lines.push('');
   for (const entry of entries) {
     lines.push('## ' + (entry.title || entry.sessionId));
